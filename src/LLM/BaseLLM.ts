@@ -3,7 +3,7 @@ interface BaseLLM {
     total_context_tokens: number;
     messages: any[];
     
-    generate(): void;
+    generate(...args: any[]): void;
 
     register_tool(): void;
 }
