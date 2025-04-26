@@ -1,7 +1,16 @@
 import BaseLLM from "@/LLM/BaseLLM";
 import Groq from "groq-sdk";
+import { Completions, ChatCompletion } from "groq-sdk/resources/chat/completions";
 import { config } from 'dotenv'
 import log from 'loglevel'
+
+
+type GroqChatCompletionParams = Parameters<InstanceType<typeof Completions>['create']>[0]
+// type GroqMessages = GroqChatCompletionParams['messages']
+type GroqMessages = Completions.ChatCompletionMessageParam
+
+
+
 
 config()
 
@@ -10,6 +19,10 @@ type GroqLLMConfig = {
     stream: boolean;
     max_completion_tokens: number;
     max_context_tokens: number
+}
+
+interface GroqContextMessages extends Completions.ChatCompletion {
+    role: 'user' | 'system' | 'assistant'
 }
 
 const GROQAI_DEFAULTS: GroqLLMConfig = {
@@ -24,7 +37,7 @@ class GroqAILLM implements BaseLLM {
     config: GroqLLMConfig;
     groq: Groq;
     total_context_tokens: number;
-    messages: any[];
+    messages: GroqContextMessages[];
 
     constructor(config: GroqLLMConfig = GROQAI_DEFAULTS) {
 
@@ -36,7 +49,12 @@ class GroqAILLM implements BaseLLM {
 
 
 
-    public async generate(messages: any[] = []): Promise<any> {
+    public async generate({ messages }: {
+        messages?: GroqMessages[]
+    }): Promise<any> {
+
+        if (!messages)
+            messages = this.messages.map(message => ({ role: message.role, content: message.choices[0]?.message?.content || "" }))
         log.warn(this.total_context_tokens)
         const chatCompletion = await this.groq.chat.completions.create({
             messages: messages,
@@ -64,15 +82,18 @@ class GroqAILLM implements BaseLLM {
             }, { sum: 0, index: -1 });
 
             const idx = reducer.index
-            
+
             log.warn(`Truncating context in range ${idx + 1} -- ${this.messages.length}`)
 
             this.messages = (idx == this.messages.length - 1) ? [] : this.messages.slice(idx + 1)
-                 
+
             this.total_context_tokens = reducer.sum
         }
 
-        this.messages.push(chatCompletion)
+        this.messages.push({
+            role: 'assistant',
+            ...chatCompletion
+        })
         this.total_context_tokens += completionTokens
         log.warn(this.total_context_tokens)
 
