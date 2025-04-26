@@ -28,7 +28,7 @@ const GROQAI_DEFAULTS: GroqLLMConfig = {
     model: "llama-3.3-70b-versatile",
     stream: false,
     max_completion_tokens: 4096,
-    max_context_tokens: 1000
+    max_context_tokens: 5000
 }
 
 class GroqAILLM implements BaseLLM {
@@ -56,7 +56,9 @@ class GroqAILLM implements BaseLLM {
             tokens: 0
         }
         
-        log.warn("total context tokens", this.total_context_tokens)
+        log.debug(`[is CONTEXT_WINDOW_TOKENS matching?]: ${this.total_context_tokens == this.messages.reduce((acc, curr, i) => acc + curr.tokens, 0)}`)
+        log.info(`[CONTEXT_WINDOW_LENGTH]: ${this.messages.length}`)
+        log.info(`[CONTEXT_WINDOW_TOKENS]: ${this.total_context_tokens}`)
         const messages = [...this.messages, input].map(x => ({ role: x.role, content: x.content }))
         const chatCompletion = await this.groq.chat.completions.create({
             messages: messages,
@@ -80,9 +82,9 @@ class GroqAILLM implements BaseLLM {
         const totalTokens = this.total_context_tokens + completionTokens + inputTokens
 
         if (totalTokens > this.config.max_context_tokens) {
-            log.warn(`context token exceeded limit ${totalTokens} >= ${this.config.max_context_tokens}`)
+            log.info(`[MAX_CONTEXT_WINDOW_OVERFLOW] context token exceeded limit ${totalTokens} >= ${this.config.max_context_tokens}`)
             const diff = totalTokens - this.config.max_context_tokens
-            log.warn(`Required space: ${diff}`)
+            
             const reducer = this.messages.reduce((acc, message, i) => {
                 acc.sum += message.tokens
                 if (acc.sum > diff && acc.index === -1) {
@@ -93,7 +95,7 @@ class GroqAILLM implements BaseLLM {
 
             const idx = reducer.index
 
-            log.warn(`Truncating context in range ${idx + 1} -- ${this.messages.length}`)
+            log.info(`[TRUNCATING CONTEXT_WINDOW]: Truncating context in range ${idx + 1} -- ${this.messages.length}`)
 
             this.messages = (idx == -1) ? [] : this.messages.slice(idx + 1)
 
@@ -102,7 +104,6 @@ class GroqAILLM implements BaseLLM {
 
         this.messages.push(...[input, output])
         this.total_context_tokens += (completionTokens + inputTokens)
-        log.warn("after", this.total_context_tokens)
 
         return output.content
     }
