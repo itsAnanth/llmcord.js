@@ -1,0 +1,11 @@
+interface BaseLLM {
+
+    total_context_tokens: number;
+    messages: any[];
+    
+    generate(): void;
+
+    register_tool(): void;
+}
+
+export default BaseLLM
