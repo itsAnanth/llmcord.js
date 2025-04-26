@@ -11,6 +11,9 @@ importers:
       discord.js:
         specifier: ^14.19.1
         version: 14.19.1
+      dotenv:
+        specifier: ^16.5.0
+        version: 16.5.0
       groq-sdk:
         specifier: ^0.20.1
         version: 0.20.1
@@ -197,6 +200,10 @@ packages:
   discord.js@14.19.1:
     resolution: {integrity: sha512-r5jsPyaeoCrRGbdse4vQNbHAsoc2zuueyiTFJ2Ce7BiaJak9OldzKZWaWGwKdCFDH3zXlthU1hHXkx1EswKZCA==}
     engines: {node: '>=18'}
+
+  dotenv@16.5.0:
+    resolution: {integrity: sha512-m/C+AwOAr9/W1UOIZUo232ejMNnJAJtYQjUbHoNTBNTJSvqzzDh7vnrei3o3r3m9blf6ZoDkvcw0VmozNRFJxg==}
+    engines: {node: '>=12'}
 
   dunder-proto@1.0.1:
     resolution: {integrity: sha512-KIN/nDJBQRcXw0MLVhZE9iQHmG68qAVIBg9CqmUYjmQIhgij9U5MFvrqkUL5FbtyyzZuOeOt0zdeRe4UY7ct+A==}
@@ -660,6 +667,8 @@ snapshots:
     transitivePeerDependencies:
       - bufferutil
       - utf-8-validate
+
+  dotenv@16.5.0: {}
 
   dunder-proto@1.0.1:
     dependencies:
