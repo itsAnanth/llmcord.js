@@ -5,9 +5,6 @@ import { config } from 'dotenv'
 import log from 'loglevel'
 
 
-type GroqChatCompletionParams = Parameters<InstanceType<typeof Completions>['create']>[0]
-// type GroqMessages = GroqChatCompletionParams['messages']
-type GroqMessages = Completions.ChatCompletionMessageParam
 
 
 
@@ -21,8 +18,10 @@ type GroqLLMConfig = {
     max_context_tokens: number
 }
 
-interface GroqContextMessages extends Completions.ChatCompletion {
-    role: 'user' | 'system' | 'assistant'
+interface GroqContextMessage {
+    role: 'user' | 'system' | 'assistant',
+    content: string,
+    tokens: number
 }
 
 const GROQAI_DEFAULTS: GroqLLMConfig = {
@@ -37,7 +36,7 @@ class GroqAILLM implements BaseLLM {
     config: GroqLLMConfig;
     groq: Groq;
     total_context_tokens: number;
-    messages: GroqContextMessages[];
+    messages: GroqContextMessage[];
 
     constructor(config: GroqLLMConfig = GROQAI_DEFAULTS) {
 
@@ -49,32 +48,43 @@ class GroqAILLM implements BaseLLM {
 
 
 
-    public async generate({ messages }: {
-        messages?: GroqMessages[]
-    }): Promise<any> {
+    public async generate(userInput: string): Promise<any> {
 
-        if (!messages)
-            messages = this.messages.map(message => ({ role: message.role, content: message.choices[0]?.message?.content || "" }))
-        log.warn(this.total_context_tokens)
+        const input: GroqContextMessage = {
+            role: 'user',
+            content: userInput,
+            tokens: 0
+        }
+        
+        log.warn("total context tokens", this.total_context_tokens)
+        const messages = [...this.messages, input].map(x => ({ role: x.role, content: x.content }))
         const chatCompletion = await this.groq.chat.completions.create({
             messages: messages,
             model: this.config.model,
             max_completion_tokens: this.config.max_completion_tokens
         })
 
-        const message = chatCompletion.choices[0]?.message?.content || null
+        const output: GroqContextMessage = {
+            role: 'assistant',
+            content: chatCompletion.choices[0]?.message?.content || "",
+            tokens: 0
+        }
 
-        if (!message)
-            return message
+        output.tokens = chatCompletion.usage?.completion_tokens || 0
+        input.tokens = chatCompletion.usage?.prompt_tokens || 0
 
-        let completionTokens = (chatCompletion.usage?.completion_tokens || 0)
-        const totalTokens = this.total_context_tokens + completionTokens
+
+        let completionTokens = output.tokens
+        let inputTokens = input.tokens
+
+        const totalTokens = this.total_context_tokens + completionTokens + inputTokens
 
         if (totalTokens > this.config.max_context_tokens) {
             log.warn(`context token exceeded limit ${totalTokens} >= ${this.config.max_context_tokens}`)
             const diff = totalTokens - this.config.max_context_tokens
+            log.warn(`Required space: ${diff}`)
             const reducer = this.messages.reduce((acc, message, i) => {
-                acc.sum += message.usage?.completion_tokens || 0;
+                acc.sum += message.tokens
                 if (acc.sum > diff && acc.index === -1) {
                     acc.index = i;
                 }
@@ -85,19 +95,16 @@ class GroqAILLM implements BaseLLM {
 
             log.warn(`Truncating context in range ${idx + 1} -- ${this.messages.length}`)
 
-            this.messages = (idx == this.messages.length - 1) ? [] : this.messages.slice(idx + 1)
+            this.messages = (idx == -1) ? [] : this.messages.slice(idx + 1)
 
-            this.total_context_tokens = reducer.sum
+            this.total_context_tokens = this.total_context_tokens - reducer.sum
         }
 
-        this.messages.push({
-            role: 'assistant',
-            ...chatCompletion
-        })
-        this.total_context_tokens += completionTokens
-        log.warn(this.total_context_tokens)
+        this.messages.push(...[input, output])
+        this.total_context_tokens += (completionTokens + inputTokens)
+        log.warn("after", this.total_context_tokens)
 
-        return message
+        return output.content
     }
 
     register_tool(): void {
