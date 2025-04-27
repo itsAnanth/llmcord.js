@@ -9,3 +9,4 @@ interface BaseLLM {
 }
 
 export default BaseLLM
+export { BaseLLM }
