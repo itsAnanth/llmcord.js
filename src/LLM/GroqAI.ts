@@ -18,6 +18,13 @@ type GroqLLMConfig = {
     max_context_tokens: number
 }
 
+type GroqLLMConfigOptions = {
+    model?: string;
+    stream?: boolean;
+    max_completion_tokens?: number;
+    max_context_tokens?: number
+}
+
 interface GroqContextMessage {
     role: 'user' | 'system' | 'assistant',
     content: string,
@@ -38,12 +45,22 @@ class GroqAILLM implements BaseLLM {
     total_context_tokens: number;
     messages: GroqContextMessage[];
 
-    constructor(config: GroqLLMConfig = GROQAI_DEFAULTS) {
+    constructor(config?: GroqLLMConfigOptions
+        
+    ) {
 
         this.groq = new Groq({ apiKey: process.env.GROP_API_KEY })
-        this.config = config
+        this.config = (config || {}) as any
         this.total_context_tokens = 0
         this.messages = []
+
+
+        for (const [key, value] of Object.entries(GROQAI_DEFAULTS) as [keyof GroqLLMConfig, any][]) {
+            // @ts-ignore
+            this.config[key] = config?.[key] ?? GROQAI_DEFAULTS[key]
+        }
+
+        console.log(this.config)
     }
 
 
@@ -57,8 +74,7 @@ class GroqAILLM implements BaseLLM {
         }
         
         log.debug(`[is CONTEXT_WINDOW_TOKENS matching?]: ${this.total_context_tokens == this.messages.reduce((acc, curr, i) => acc + curr.tokens, 0)}`)
-        log.info(`[CONTEXT_WINDOW_LENGTH]: ${this.messages.length}`)
-        log.info(`[CONTEXT_WINDOW_TOKENS]: ${this.total_context_tokens}`)
+
         const messages = [...this.messages, input].map(x => ({ role: x.role, content: x.content }))
         const chatCompletion = await this.groq.chat.completions.create({
             messages: messages,
@@ -104,6 +120,9 @@ class GroqAILLM implements BaseLLM {
 
         this.messages.push(...[input, output])
         this.total_context_tokens += (completionTokens + inputTokens)
+
+        log.info(`[CONTEXT_WINDOW_LENGTH]: ${this.messages.length}`)
+        log.info(`[CONTEXT_WINDOW_TOKENS]: ${this.total_context_tokens}`)
 
         return output.content
     }
