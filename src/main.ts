@@ -25,7 +25,12 @@ log.setLevel('INFO');
             GatewayIntentBits.GuildMessages,
             GatewayIntentBits.MessageContent
         ],
+        allowedMentions: {
+            parse: [],
+            repliedUser: false
+        },
         llmclient: llm
+
     });
 
     await client.registerEvents('./src/events')
