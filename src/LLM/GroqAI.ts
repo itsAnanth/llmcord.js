@@ -1,6 +1,5 @@
 import BaseLLM, { BaseLLMConfig } from "@/LLM/BaseLLM";
 import Groq from "groq-sdk";
-import { Completions, ChatCompletion } from "groq-sdk/resources/chat/completions";
 import { config } from 'dotenv'
 import log from 'loglevel'
 
