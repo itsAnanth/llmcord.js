@@ -1,10 +1,11 @@
 interface BaseLLM {
 
+    config: BaseLLMConfig;
     total_context_tokens: number;
     messages: any[];
     
     generate(...args: any[]): void;
-
+    truncateContext(...args: any[]): any;
     register_tool(): void;
 }
 
